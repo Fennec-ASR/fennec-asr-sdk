@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fennec-asr"
+version = "0.1.0"
+description = "Python SDK for the Fennec ASR API"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
+]
+license = { text = "MIT" }
+authors = [{ name = "Your Team", email = "info@fennec-asr.com" }]
+dependencies = [
+  "requests>=2.31.0,<3",
+  "websockets>=12,<16",
+  "typing-extensions>=4.8.0"
+]
+
+# Optional microphone helper extra so users can do: pip install fennec-asr[mic]
+[project.optional-dependencies]
+mic = [
+  "sounddevice>=0.4.7",
+  "numpy>=1.22.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Fennec-ASR/fennec-asr-sdk"
+Issues = "https://github.com/Fennec-ASR/fennec-asr-sdk/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["fennec_asr"]
+include-package-data = true
+
+# Ensure py.typed is included in wheels/sdist for typing support (PEP 561)
+[tool.setuptools.package-data]
+fennec_asr = ["py.typed"]
+
+[project.scripts]
+fennec-asr = "fennec_asr.cli:main"
