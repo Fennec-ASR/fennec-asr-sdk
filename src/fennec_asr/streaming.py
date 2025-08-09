@@ -94,18 +94,38 @@ class Realtime:
 
     # ---------------- Lifecycle ----------------
     async def open(self) -> None:
-        """Open the WebSocket and send the start message."""
+        """Open the WebSocket, perform the handshake, and start listening."""
         url = f"{self._base_url}?api_key={self._api_key}"
         if self._detect_thoughts:
             url += "&detect_thoughts=true"
 
+        # 1. Connect to the server
         self._ws = await websockets.connect(
             url,
             max_size=None,
             ping_interval=self._ping_interval,
             ping_timeout=self._ping_timeout,
         )
-        await self._ws.send(json.dumps(self._start_msg))
+
+        try:
+            # 2. Send the 'start' message to initiate the handshake
+            await self._ws.send(json.dumps(self._start_msg))
+
+            # 3. Wait for the server's 'ready' confirmation
+            ready_message = await asyncio.wait_for(self._ws.recv(), timeout=10)
+            ready_data = json.loads(ready_message)
+
+            if ready_data.get("type") != "ready":
+                await self._ws.close(code=1002, reason="protocol_error")
+                raise APIError(f"Handshake failed: Server did not respond with 'ready'. Got: {ready_message}")
+
+        except (asyncio.TimeoutError, websockets.ConnectionClosed, json.JSONDecodeError) as e:
+            # Clean up and raise a specific error if the handshake fails
+            if self._ws and not self._ws.closed:
+                await self._ws.close()
+            raise APIError(f"WebSocket handshake failed: {e}") from e
+
+        # 4. Handshake complete! Start the background receive loop and emit 'open'
         self._recv_task = asyncio.create_task(self._recv_loop())
         self._emit("open")
 
