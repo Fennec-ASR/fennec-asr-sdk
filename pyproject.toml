@@ -24,6 +24,7 @@ dependencies = [
   "typing-extensions>=4.8.0"
 ]
 
+
 # Optional microphone helper extra so users can do: pip install fennec-asr[mic]
 [project.optional-dependencies]
 mic = [
