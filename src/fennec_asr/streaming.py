@@ -125,6 +125,7 @@ class Realtime:
                 await self._ws.close()
             raise APIError(f"WebSocket handshake failed: {e}") from e
 
+
         # 4. Handshake complete! Start the background receive loop and emit 'open'
         self._recv_task = asyncio.create_task(self._recv_loop())
         self._emit("open")
