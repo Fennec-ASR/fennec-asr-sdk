@@ -58,6 +58,10 @@ async def test_context_manager_open_close_without_network(monkeypatch):
         async def send(self, data):
             self.sent.append(data)
 
+        async def recv(self):
+        # satisfy the client's handshake wait
+            return json.dumps({"type": "ready"})
+
         async def close(self, code=1000, reason=""):
             self.closed = True
 

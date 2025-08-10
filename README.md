@@ -75,6 +75,8 @@ async def main():
     rt = Realtime("sk_***").on("final", print).on("error", lambda e: print("ERR:", e))
     async with rt:
         # Send 16kHz, mono, 16-bit PCM bytes (no helper; bring your own frames)
+        # The client performs a start/ready handshake automatically on enter.
+        # After you see the "open" event, you can send 16kHz, mono, 16-bit PCM:
         await rt.send_bytes(b"...")
         await rt.send_eos()
         async for _ in rt.messages():  # drain until server closes

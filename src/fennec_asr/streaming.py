@@ -48,6 +48,8 @@ class Realtime:
         ws_url: str = DEFAULT_WS,
         sample_rate: int = 16000,
         channels: int = 1,
+        single_utterance: bool = False,
+        vad: Optional[Dict[str, Any]] = None,
         detect_thoughts: bool = False,
         ping_interval: int = 20,
         ping_timeout: int = 30,
@@ -59,6 +61,10 @@ class Realtime:
         self._base_url = ws_url
         self._detect_thoughts = detect_thoughts
         self._start_msg = {"type": "start", "sample_rate": sample_rate, "channels": channels}
+        if single_utterance:
+            self._start_msg["single_utterance"] = True
+        if vad:
+            self._start_msg["vad"] = vad
         self._ping_interval = ping_interval
         self._ping_timeout = ping_timeout
 
