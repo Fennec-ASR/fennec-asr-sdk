@@ -17,6 +17,7 @@ def coerce_formatting(fmt: Union[str, Dict[str, Any], None]) -> Union[str, None]
     if isinstance(fmt, str): return fmt
     return json.dumps(fmt)
 
+
 def file_hash_for_idempotency(fp: Path, algo: str = "sha256") -> str:
     h = hashlib.new(algo)
     with fp.open("rb") as f:
