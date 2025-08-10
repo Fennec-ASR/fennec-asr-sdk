@@ -7,7 +7,7 @@ from websockets import WebSocketClientProtocol
 
 from .exceptions import APIError
 
-DEFAULT_WS = "wss://https://api.fennec-asr.com/api/v1/transcribe/stream"
+DEFAULT_WS = "wss://api.fennec-asr.com/api/v1/transcribe/stream"
 EventCallback = Callable[[Any], None]
 
 
