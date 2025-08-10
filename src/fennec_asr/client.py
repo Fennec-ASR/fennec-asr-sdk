@@ -8,7 +8,7 @@ import requests
 from .exceptions import APIError, AuthenticationError, NotFoundError
 from .types import TranscriptionStatus
 
-DEFAULT_BASE_URL = "https://asr-api-hso0.onrender.com/api/v1"
+DEFAULT_BASE_URL = "https://api.fennec-asr.com/api/v1"
 
 class FennecASRClient:
     """
