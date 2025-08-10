@@ -140,6 +140,27 @@ class FennecASRClient:
             raise APIError(final.get("transcript") or "Transcription failed")
         return final.get("transcript", "")
 
+    def transcribe_url(
+            self,
+            audio_url: str,
+            *,
+            context: Optional[str] = None,
+            apply_contextual_correction: bool = False,
+            formatting: Optional[Dict[str, Any]] = None,
+            poll_interval_s: float = 3.0,
+            timeout_s: float = 300.0,
+    ) -> str:
+        job_id = self.submit_url(
+            audio_url,
+            context=context,
+            apply_contextual_correction=apply_contextual_correction,
+            formatting=formatting,
+        )
+        final = self.wait_for_completion(job_id, poll_interval_s=poll_interval_s, timeout_s=timeout_s)
+        if final.get("status") == "failed":
+            raise APIError(final.get("transcript") or "Transcription failed")
+        return final.get("transcript", "")
+
     # ---------- Internal ----------
     @staticmethod
     def _raise_for_status(resp: requests.Response) -> None:
