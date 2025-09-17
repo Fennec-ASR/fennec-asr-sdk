@@ -3,6 +3,7 @@
 A small, friendly Python SDK for the Fennec ASR API. It supports:
 
 - **Batch transcription (HTTP)** – upload a file or provide a URL, then poll until complete.
+- **Speaker Diarization** – identify different speakers in batch transcriptions.
 - **Realtime transcription (WebSocket)** – stream raw PCM audio bytes and receive partial/final results.
 - **One-liner convenience** – `transcribe("sample.mp3")` using `FENNEC_API_KEY` from your environment.
 - **CLI** – `fennec-asr <file-or-url>` prints the transcript.

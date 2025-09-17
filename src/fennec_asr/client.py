@@ -8,7 +8,7 @@ import requests
 from .exceptions import APIError, AuthenticationError, NotFoundError
 from .types import TranscriptionStatus
 
-DEFAULT_BASE_URL = "https://api.fennec-asr.com/api/v1"
+DEFAULT_BASE_URL = "https://asr-api-hso0.onrender.com/api/v1"
 
 class FennecASRClient:
     """
@@ -31,10 +31,16 @@ class FennecASRClient:
         context: Optional[str] = None,
         apply_contextual_correction: bool = False,
         formatting: Optional[Dict[str, Any]] = None,
+        diarize: bool = False,
+        speaker_recognition_context: Optional[str] = None,
     ) -> str:
         """
         POST /transcribe (multipart). Returns job_id.
         """
+        # Validation
+        if speaker_recognition_context is not None and not diarize:
+            raise ValueError("speaker_recognition_context requires diarize=True")
+
         url = f"{self.base_url}/transcribe"
         fp = Path(file_path)
         if not fp.exists():
@@ -45,7 +51,13 @@ class FennecASRClient:
         if context is not None:
             data["context"] = context
         data["apply_contextual_correction"] = str(bool(apply_contextual_correction)).lower()
-        if formatting is not None:
+
+        if diarize:
+            data["diarize"] = "true"
+            if speaker_recognition_context is not None:
+                data["speaker_recognition_context"] = speaker_recognition_context
+            # Formatting is ignored if diarize=True, so we do not send it.
+        elif formatting is not None:
             data["formatting"] = json.dumps(formatting)
 
         try:
@@ -66,16 +78,28 @@ class FennecASRClient:
         context: Optional[str] = None,
         apply_contextual_correction: bool = False,
         formatting: Optional[Dict[str, Any]] = None,
+        diarize: bool = False,
+        speaker_recognition_context: Optional[str] = None,
     ) -> str:
         """
         POST /transcribe/url (JSON). Returns job_id.
         """
+        # Validation
+        if speaker_recognition_context is not None and not diarize:
+            raise ValueError("speaker_recognition_context requires diarize=True")
+
         url = f"{self.base_url}/transcribe/url"
         payload: Dict[str, Any] = {"audio": audio_url}
         if context is not None:
             payload["context"] = context
         payload["apply_contextual_correction"] = bool(apply_contextual_correction)
-        if formatting is not None:
+
+        if diarize:
+            payload["diarize"] = True
+            if speaker_recognition_context is not None:
+                payload["speaker_recognition_context"] = speaker_recognition_context
+            # Formatting is ignored if diarize=True, so we do not send it.
+        elif formatting is not None:
             payload["formatting"] = formatting  # server parses JSON string or object
 
         resp = self.session.post(url, json=payload, timeout=self.timeout)
@@ -123,6 +147,8 @@ class FennecASRClient:
         context: Optional[str] = None,
         apply_contextual_correction: bool = False,
         formatting: Optional[Dict[str, Any]] = None,
+        diarize: bool = False,
+        speaker_recognition_context: Optional[str] = None,
         poll_interval_s: float = 3.0,
         timeout_s: float = 300.0,
     ) -> str:
@@ -134,6 +160,8 @@ class FennecASRClient:
             context=context,
             apply_contextual_correction=apply_contextual_correction,
             formatting=formatting,
+            diarize=diarize,
+            speaker_recognition_context=speaker_recognition_context,
         )
         final = self.wait_for_completion(job_id, poll_interval_s=poll_interval_s, timeout_s=timeout_s)
         if final.get("status") == "failed":
@@ -147,6 +175,8 @@ class FennecASRClient:
             context: Optional[str] = None,
             apply_contextual_correction: bool = False,
             formatting: Optional[Dict[str, Any]] = None,
+            diarize: bool = False,
+            speaker_recognition_context: Optional[str] = None,
             poll_interval_s: float = 3.0,
             timeout_s: float = 300.0,
     ) -> str:
@@ -155,6 +185,8 @@ class FennecASRClient:
             context=context,
             apply_contextual_correction=apply_contextual_correction,
             formatting=formatting,
+            diarize=diarize,
+            speaker_recognition_context=speaker_recognition_context,
         )
         final = self.wait_for_completion(job_id, poll_interval_s=poll_interval_s, timeout_s=timeout_s)
         if final.get("status") == "failed":
