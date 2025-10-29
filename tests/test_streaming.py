@@ -97,7 +97,7 @@ async def test_context_manager_open_close_without_network(monkeypatch):
 
         text = ""
 
-    monkeypatch.setattr(streaming_mod.requests, "get", lambda *a, **k: R())
+    monkeypatch.setattr(streaming_mod.requests, "post", lambda *a, **k: R())
 
     opened = []
     closed = []

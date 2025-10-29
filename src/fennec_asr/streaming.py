@@ -91,28 +91,28 @@ class Realtime:
     # ---------------- Token ----------------
     def _fetch_streaming_token_sync(self) -> str:
         """
-        Synchronously fetches a short-lived token from:
-          GET {HTTP_BASE}/transcribe/streaming-token
+        POST {HTTP_BASE}/transcribe/streaming-token
         Returns: token string.
         """
         url = f"{self._http_base}{self._token_endpoint}"
         headers = {"Accept": "application/json"}
-        # Even if the endpoint is public, sending X-API-Key is harmless and keeps behavior consistent
+        # harmless if endpoint is public; required if it expects your key
         if self._api_key:
             headers["X-API-Key"] = self._api_key
 
-        resp = requests.get(url, headers=headers, timeout=15)
-        if resp.status_code == 405:  # method not allowed -> try POST if server enforces verb
-            resp = requests.post(url, headers=headers, timeout=15)
+        resp = requests.post(url, headers=headers, timeout=15)
 
         if not (200 <= resp.status_code < 300):
             raise APIError(f"Token fetch failed (HTTP {resp.status_code}): {resp.text}")
+
         try:
             token = resp.json().get("token")
         except Exception as e:
             raise APIError(f"Invalid token response: {e}") from e
+
         if not token:
             raise APIError("Missing 'token' in token response")
+
         return token
 
     def _with_query(self, base: str, extra: Dict[str, Any]) -> str:
