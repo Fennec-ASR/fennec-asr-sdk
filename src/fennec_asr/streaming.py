@@ -1,11 +1,15 @@
 import asyncio
 import json
 from typing import Any, AsyncIterator, Callable, Dict, Optional
+from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 
+import requests
 import websockets
 from websockets import WebSocketClientProtocol
 
 from .exceptions import APIError
+from .client import DEFAULT_BASE_URL as _DEFAULT_HTTP_BASE
+from .utils import env
 
 DEFAULT_WS = "wss://api.fennec-asr.com/api/v1/transcribe/stream"
 EventCallback = Callable[[Any], None]
@@ -14,6 +18,9 @@ EventCallback = Callable[[Any], None]
 class Realtime:
     """
     Event-driven WebSocket client for Fennec ASR.
+
+    It now automatically fetches a short-lived streaming token from
+    {HTTP_BASE}/transcribe/streaming-token and connects with ?token=...
 
     Subscribe with .on(event, callback):
       - "open":    () -> None
@@ -46,6 +53,9 @@ class Realtime:
         api_key: str,
         *,
         ws_url: str = DEFAULT_WS,
+        base_url: Optional[str] = None,
+        token_endpoint: str = "/transcribe/streaming-token",
+        force_token: bool = True,
         sample_rate: int = 16000,
         channels: int = 1,
         single_utterance: bool = False,
@@ -57,8 +67,13 @@ class Realtime:
     ) -> None:
         if not api_key:
             raise ValueError("api_key is required")
-        self._api_key = api_key
-        self._base_url = ws_url
+        self._api_key = api_key  # may be used by the token endpoint if required
+        self._ws_url = ws_url
+        # HTTP base for token fetch; allow env override like the REST client
+        self._http_base = (base_url or env("FENNEC_BASE_URL", _DEFAULT_HTTP_BASE) or _DEFAULT_HTTP_BASE).rstrip("/")
+        self._token_endpoint = token_endpoint
+        self._force_token = force_token
+
         self._detect_thoughts = detect_thoughts
         self._start_msg = {"type": "start", "sample_rate": sample_rate, "channels": channels}
         if single_utterance:
@@ -72,6 +87,41 @@ class Realtime:
         self._ws: Optional[WebSocketClientProtocol] = None
         self._recv_task: Optional[asyncio.Task] = None
         self._q: asyncio.Queue[dict] = asyncio.Queue(maxsize=queue_max)
+
+    # ---------------- Token ----------------
+    def _fetch_streaming_token_sync(self) -> str:
+        """
+        Synchronously fetches a short-lived token from:
+          GET {HTTP_BASE}/transcribe/streaming-token
+        Returns: token string.
+        """
+        url = f"{self._http_base}{self._token_endpoint}"
+        headers = {"Accept": "application/json"}
+        # Even if the endpoint is public, sending X-API-Key is harmless and keeps behavior consistent
+        if self._api_key:
+            headers["X-API-Key"] = self._api_key
+
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code == 405:  # method not allowed -> try POST if server enforces verb
+            resp = requests.post(url, headers=headers, timeout=15)
+
+        if not (200 <= resp.status_code < 300):
+            raise APIError(f"Token fetch failed (HTTP {resp.status_code}): {resp.text}")
+        try:
+            token = resp.json().get("token")
+        except Exception as e:
+            raise APIError(f"Invalid token response: {e}") from e
+        if not token:
+            raise APIError("Missing 'token' in token response")
+        return token
+
+    def _with_query(self, base: str, extra: Dict[str, Any]) -> str:
+        """Append/merge query params cleanly."""
+        p = urlparse(base)
+        existing = dict(parse_qsl(p.query, keep_blank_values=True))
+        existing.update({k: str(v).lower() if isinstance(v, bool) else str(v) for k, v in extra.items() if v is not None})
+        new_q = urlencode(existing)
+        return urlunparse((p.scheme, p.netloc, p.path, p.params, new_q, p.fragment))
 
     # ---------------- Event API ----------------
     def on(self, event: str, callback: EventCallback) -> "Realtime":
@@ -101,9 +151,16 @@ class Realtime:
     # ---------------- Lifecycle ----------------
     async def open(self) -> None:
         """Open the WebSocket, perform the handshake, and start listening."""
-        url = f"{self._base_url}?api_key={self._api_key}"
-        if self._detect_thoughts:
-            url += "&detect_thoughts=true"
+        # Prefer short-lived token (more secure; avoids passing api_key in WS URL)
+        url = self._ws_url
+        if self._force_token:
+            token = await asyncio.to_thread(self._fetch_streaming_token_sync)
+            q = {"token": token, "detect_thoughts": True if self._detect_thoughts else None}
+            url = self._with_query(url, q)
+        else:
+            # Legacy fallback (not recommended): put api_key in query
+            q = {"api_key": self._api_key, "detect_thoughts": True if self._detect_thoughts else None}
+            url = self._with_query(url, q)
 
         # 1. Connect to the server
         self._ws = await websockets.connect(
@@ -130,7 +187,6 @@ class Realtime:
             if self._ws and not self._ws.closed:
                 await self._ws.close()
             raise APIError(f"WebSocket handshake failed: {e}") from e
-
 
         # 4. Handshake complete! Start the background receive loop and emit 'open'
         self._recv_task = asyncio.create_task(self._recv_loop())

@@ -45,6 +45,7 @@ async def test_context_manager_open_close_without_network(monkeypatch):
     """
     We mock websockets.connect so no real network call happens.
     Ensures:
+      - open() fetches a token and uses it in the WS URL
       - open() sends the start message
       - background recv loop exits cleanly
       - close() is called and 'closed' sentinel is queued
@@ -59,7 +60,7 @@ async def test_context_manager_open_close_without_network(monkeypatch):
             self.sent.append(data)
 
         async def recv(self):
-        # satisfy the client's handshake wait
+            # satisfy the client's handshake wait
             return json.dumps({"type": "ready"})
 
         async def close(self, code=1000, reason=""):
@@ -75,13 +76,27 @@ async def test_context_manager_open_close_without_network(monkeypatch):
 
     fake_ws = FakeWS()
 
-    async def fake_connect(*args, **kwargs):
+    captured_connect_url = {"url": None}
+
+    async def fake_connect(url, *args, **kwargs):
+        captured_connect_url["url"] = url
         return fake_ws
 
     # Patch websockets.connect
     import fennec_asr.streaming as streaming_mod
 
     monkeypatch.setattr(streaming_mod.websockets, "connect", fake_connect)
+
+    # Patch token fetch (HTTP) so open() can build ?token=...
+    class R:
+        status_code = 200
+
+        def json(self):
+            return {"token": "tok-xyz"}
+
+        text = ""
+
+    monkeypatch.setattr(streaming_mod.requests, "get", lambda *a, **k: R())
 
     opened = []
     closed = []
@@ -105,3 +120,5 @@ async def test_context_manager_open_close_without_network(monkeypatch):
     # Context manager should have closed the socket
     assert fake_ws.closed is True
     assert opened and closed
+    # Ensure we connected using a token (not api_key)
+    assert "token=tok-xyz" in (captured_connect_url["url"] or "")
