@@ -123,3 +123,4 @@ async def test_context_manager_open_close_without_network(monkeypatch):
     assert opened and closed
     # Ensure we connected using a token (not api_key)
     assert "streaming_token=tok-xyz" in (captured_connect_url["url"] or "")
+
