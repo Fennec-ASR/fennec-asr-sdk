@@ -155,7 +155,7 @@ class Realtime:
         url = self._ws_url
         if self._force_token:
             token = await asyncio.to_thread(self._fetch_streaming_token_sync)
-            q = {"token": token, "detect_thoughts": True if self._detect_thoughts else None}
+            q = {"streaming_token": token, "detect_thoughts": True if self._detect_thoughts else None}
             url = self._with_query(url, q)
         else:
             # Legacy fallback (not recommended): put api_key in query
