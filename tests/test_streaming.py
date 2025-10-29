@@ -2,6 +2,7 @@ import asyncio
 import json
 import types
 
+
 import pytest
 
 from fennec_asr.streaming import Realtime
@@ -92,7 +93,7 @@ async def test_context_manager_open_close_without_network(monkeypatch):
         status_code = 200
 
         def json(self):
-            return {"token": "tok-xyz"}
+            return {"streaming_token": "tok-xyz"}
 
         text = ""
 
@@ -121,4 +122,4 @@ async def test_context_manager_open_close_without_network(monkeypatch):
     assert fake_ws.closed is True
     assert opened and closed
     # Ensure we connected using a token (not api_key)
-    assert "token=tok-xyz" in (captured_connect_url["url"] or "")
+    assert "streaming_token=tok-xyz" in (captured_connect_url["url"] or "")
